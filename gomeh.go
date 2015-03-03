@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	WindowWidth = 800
-	WindowHeight = 600
+	WindowWidth = 1000
+	WindowHeight = 1000
 )
 
 type pointsAndBoxes struct {
@@ -48,7 +48,16 @@ func main() {
 	}
 	d := loadJson(os.Args[1])
 
-	fmt.Println(d.Type.Point)
+	fmt.Println("Number of points:", len(d.Type.Point))
+	pointSlice := make([]float64, len(d.Type.Point)*2)
+	i := 0
+	for  _, p := range d.Type.Point {
+		pointSlice[i] = p.Phi
+		pointSlice[i + 1] = p.Lambda
+		i += 2
+	}
+
+	//pointSlice := []float64{-89,89}
 
 	runtime.LockOSThread()
 	if err := glfw.Init(); err != nil {
@@ -79,11 +88,11 @@ func main() {
 	}
 	gl.UseProgram(program)
 
-	projection := mgl32.Perspective(mgl32.DegToRad(45.0), float32(WindowWidth)/WindowHeight, 0.1, 10.0)
+	projection := mgl32.Ortho2D(-90, 90, -90, 90)
 	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	camera := mgl32.LookAtV(mgl32.Vec3{3, 3, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	camera := mgl32.Ident4()// mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
 	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
@@ -91,13 +100,30 @@ func main() {
 	modelUniform := gl.GetUniformLocation(program, gl.Str("model\x00"))
 	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
+	var vao uint32
+	gl.GenVertexArrays(1, &vao)
+	gl.BindVertexArray(vao)
+
+	var vbo uint32
+	gl.GenBuffers(1, &vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(pointSlice) * 8, gl.Ptr(pointSlice), gl.STATIC_DRAW)
+
+	vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
+	gl.EnableVertexAttribArray(vertAttrib)
+	gl.VertexAttribPointer(vertAttrib, 2, gl.DOUBLE, false, 0, gl.PtrOffset(0))
+
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
+		gl.BindVertexArray(vao)
+		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/2))
+
 		window.SwapBuffers()
 		glfw.PollEvents()
 	}
+
 }
 func newProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
 	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
@@ -161,9 +187,9 @@ var vertexShader string = `
 uniform mat4 projection;
 uniform mat4 camera;
 uniform mat4 model;
-in vec3 vert;
+in vec2 vert;
 void main() {
-    gl_Position = projection * camera * model * vec4(vert, 1);
+    gl_Position = projection * camera * model * vec4(vert, 0, 1);
 }
 ` + "\x00"
 

@@ -42,6 +42,9 @@ func loadJson(filename string) (ret *pointsAndBoxes) {
 }
 
 func main() {
+	var x float32
+	var y float32
+
 	if len(os.Args) != 2 {
 		fmt.Printf("usage: %s <filename>\n", os.Args[0])
 		os.Exit(1)
@@ -73,6 +76,24 @@ func main() {
 	}
 	window.MakeContextCurrent()
 
+	window.SetKeyCallback(func (w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+		if key == glfw.KeyA && action == glfw.Press {
+			x -= 1
+		}
+
+		if key == glfw.KeyD && action == glfw.Press {
+			x += 1
+		}
+
+		if key == glfw.KeyS && action == glfw.Press {
+			y -= 1
+		}
+
+		if key == glfw.KeyW && action == glfw.Press {
+			y += 1
+		}
+	})
+
 	if err := gl.Init(); err != nil {
 		log.Fatal("Failed to initialize opengl")
 	}
@@ -91,7 +112,7 @@ func main() {
 	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-	camera := mgl32.Ident4()// mgl32.LookAtV(mgl32.Vec3{0, 0, 3}, mgl32.Vec3{0, 0, 0}, mgl32.Vec3{0, 1, 0})
+	camera := mgl32.Ident4()
 	cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
 	gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
@@ -115,6 +136,9 @@ func main() {
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+		camera := mgl32.Translate3D(-x, -y, 0)
+		gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
 		gl.BindVertexArray(vao)
 		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/2))

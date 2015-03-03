@@ -57,8 +57,6 @@ func main() {
 		i += 2
 	}
 
-	//pointSlice := []float64{-89,89}
-
 	runtime.LockOSThread()
 	if err := glfw.Init(); err != nil {
 		log.Fatalln("Failed to initialize glfw:", err)
@@ -88,7 +86,8 @@ func main() {
 	}
 	gl.UseProgram(program)
 
-	projection := mgl32.Ortho2D(-90, 90, -90, 90)
+//	projection := mgl32.Ortho2D(-90, 90, -90, 90)
+	projection := mgl32.Ortho2D(10, 25, 55, 70)
 	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 

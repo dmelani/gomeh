@@ -44,6 +44,7 @@ func loadJson(filename string) (ret *pointsAndBoxes) {
 func main() {
 	var x float32
 	var y float32
+	var span float32 = 180
 
 	if len(os.Args) != 2 {
 		fmt.Printf("usage: %s <filename>\n", os.Args[0])
@@ -78,19 +79,27 @@ func main() {
 
 	window.SetKeyCallback(func (w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 		if key == glfw.KeyA && action == glfw.Press {
-			x -= 1
+			x -= span/10
 		}
 
 		if key == glfw.KeyD && action == glfw.Press {
-			x += 1
+			x += span/10
 		}
 
 		if key == glfw.KeyS && action == glfw.Press {
-			y -= 1
+			y -= span/10
 		}
 
 		if key == glfw.KeyW && action == glfw.Press {
-			y += 1
+			y += span/10
+		}
+
+		if key == glfw.KeyR && action == glfw.Press {
+			span /= 2
+		}
+
+		if key == glfw.KeyF && action == glfw.Press {
+			span *= 2
 		}
 	})
 
@@ -107,8 +116,7 @@ func main() {
 	}
 	gl.UseProgram(program)
 
-//	projection := mgl32.Ortho2D(-90, 90, -90, 90)
-	projection := mgl32.Ortho2D(10, 25, 55, 70)
+	projection := mgl32.Ortho2D(-span/2, span/2, -span/2, span/2)
 	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
@@ -137,7 +145,10 @@ func main() {
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		camera := mgl32.Translate3D(-x, -y, 0)
+		projection = mgl32.Ortho2D(-span/2, span/2, -span/2, span/2)
+		gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
+
+		camera = mgl32.Translate3D(-x, -y, 0)
 		gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
 		gl.BindVertexArray(vao)

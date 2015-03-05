@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"fmt"
 	"log"
-	"encoding/json"
 	"runtime"
 	"strings"
 	"errors"
@@ -13,6 +12,11 @@ import (
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
 	"github.com/go-gl/mathgl/mgl32"
+
+	gj "github.com/kpawlik/geojson"
+	"encoding/json"
+
+	"github.com/StefanSchroeder/Golang-Ellipsoid/ellipsoid"
 )
 
 const (
@@ -20,46 +24,56 @@ const (
 	WindowHeight = 1000
 )
 
-type pointsAndBoxes struct {
-	Type struct {
-		Box map[string]interface{}
-		Point map[string]struct {
-			Lambda float64 `json:",string"`
-			Phi float64 `json:",string"`
-		}
-	}
-}
+func loadPoints(filename string) []float64 {
+	var feature gj.Feature
+	geo1 := ellipsoid.Init("WGS84", ellipsoid.Degrees, ellipsoid.Meter, ellipsoid.LongitudeIsSymmetric, ellipsoid.BearingIsSymmetric)
 
-func loadJson(filename string) (ret *pointsAndBoxes) {
-	ret = &pointsAndBoxes{}
 	file, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	json.Unmarshal(file, ret)
-	return ret
+	err = json.Unmarshal(file, &feature)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	g, err := feature.GetGeometry()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mp, ok := g.(*gj.MultiPoint)
+	if !ok {
+		log.Fatalln("Failed to extract point coordinates from geojson")
+	}
+
+	fmt.Println("Loaded point coordinates:", len(mp.Coordinates))
+
+	pointSlice := make([]float64, len(mp.Coordinates)*3)
+	i := 0
+	for  _, p := range mp.Coordinates {
+		x, y, z := geo1.ToECEF(float64(p[1]), float64(p[0]), 0)
+		pointSlice[i + 0] = x / geo1.Ellipse.Equatorial
+		pointSlice[i + 1] = y / geo1.Ellipse.Equatorial
+		pointSlice[i + 2] = z / geo1.Ellipse.Equatorial
+		i += 3
+	}
+
+	return pointSlice
 }
 
 func main() {
 	var x float32
 	var y float32
-	var span float32 = 180
+	var span float32 = 2
 
 	if len(os.Args) != 2 {
 		fmt.Printf("usage: %s <filename>\n", os.Args[0])
 		os.Exit(1)
 	}
-	d := loadJson(os.Args[1])
 
-	fmt.Println("Number of points:", len(d.Type.Point))
-	pointSlice := make([]float64, len(d.Type.Point)*2)
-	i := 0
-	for  _, p := range d.Type.Point {
-		pointSlice[i] = p.Phi
-		pointSlice[i + 1] = p.Lambda
-		i += 2
-	}
+	pointSlice := loadPoints(os.Args[1])
 
 	runtime.LockOSThread()
 	if err := glfw.Init(); err != nil {
@@ -116,7 +130,7 @@ func main() {
 	}
 	gl.UseProgram(program)
 
-	projection := mgl32.Ortho2D(-span/2, span/2, -span/2, span/2)
+	projection := mgl32.Ortho(-span/2, span/2, -span/2, span/2, -span/2, span/2)
 	projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
 	gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
@@ -139,20 +153,20 @@ func main() {
 
 	vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
 	gl.EnableVertexAttribArray(vertAttrib)
-	gl.VertexAttribPointer(vertAttrib, 2, gl.DOUBLE, false, 0, gl.PtrOffset(0))
+	gl.VertexAttribPointer(vertAttrib, 3, gl.DOUBLE, false, 0, gl.PtrOffset(0))
 
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		projection = mgl32.Ortho2D(-span/2, span/2, -span/2, span/2)
+		projection := mgl32.Ortho(-span/2, span/2, -span/2, span/2, -100, 100)
 		gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-		camera = mgl32.Translate3D(-x, -y, 0)
+		camera = mgl32.Translate3D(-x, -y, -5)
 		gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
 		gl.BindVertexArray(vao)
-		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/2))
+		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))
 
 		window.SwapBuffers()
 		glfw.PollEvents()
@@ -221,9 +235,9 @@ var vertexShader string = `
 uniform mat4 projection;
 uniform mat4 camera;
 uniform mat4 model;
-in vec2 vert;
+in vec3 vert;
 void main() {
-    gl_Position = projection * camera * model * vec4(vert, 0, 1);
+    gl_Position = projection * camera * model * vec4(vert, 1);
 }
 ` + "\x00"
 

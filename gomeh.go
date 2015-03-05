@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"errors"
+	_ "math"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
@@ -64,8 +65,8 @@ func loadPoints(filename string) []float64 {
 }
 
 func main() {
-	var x float32
-	var y float32
+	var angle_y float32
+	var angle_x float32
 	var span float32 = 2
 
 	if len(os.Args) != 2 {
@@ -93,19 +94,20 @@ func main() {
 
 	window.SetKeyCallback(func (w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 		if key == glfw.KeyA && action == glfw.Press {
-			x -= span/10
+			angle_y += span/10
 		}
 
 		if key == glfw.KeyD && action == glfw.Press {
-			x += span/10
+			angle_y -= span/10
+		}
+
+
+		if key == glfw.KeyW && action == glfw.Press {
+			angle_x += span/10
 		}
 
 		if key == glfw.KeyS && action == glfw.Press {
-			y -= span/10
-		}
-
-		if key == glfw.KeyW && action == glfw.Press {
-			y += span/10
+			angle_x -= span/10
 		}
 
 		if key == glfw.KeyR && action == glfw.Press {
@@ -162,8 +164,11 @@ func main() {
 		projection := mgl32.Ortho(-span/2, span/2, -span/2, span/2, -100, 100)
 		gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
-		camera = mgl32.Translate3D(-x, -y, -5)
+		camera = mgl32.Translate3D(0, 0, -5)
 		gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+
+		model = mgl32.HomogRotate3DX(angle_x).Mul4(mgl32.HomogRotate3DY(angle_y))
+		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
 		gl.BindVertexArray(vao)
 		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))

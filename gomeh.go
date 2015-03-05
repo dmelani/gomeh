@@ -54,9 +54,9 @@ func loadPoints(filename string) []float64 {
 	i := 0
 	for  _, p := range mp.Coordinates {
 		x, y, z := geo1.ToECEF(float64(p[1]), float64(p[0]), 0)
-		pointSlice[i + 0] = x / geo1.Ellipse.Equatorial
-		pointSlice[i + 1] = y / geo1.Ellipse.Equatorial
-		pointSlice[i + 2] = z / geo1.Ellipse.Equatorial
+		pointSlice[i + 0] = y / geo1.Ellipse.Equatorial
+		pointSlice[i + 1] = z / geo1.Ellipse.Equatorial
+		pointSlice[i + 2] = x / geo1.Ellipse.Equatorial
 		i += 3
 	}
 

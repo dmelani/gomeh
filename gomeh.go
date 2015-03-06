@@ -25,6 +25,44 @@ const (
 	WindowHeight = 1000
 )
 
+func loadBounds(filename string) []float64 {
+	var feature gj.Feature
+	geo1 := ellipsoid.Init("WGS84", ellipsoid.Degrees, ellipsoid.Meter, ellipsoid.LongitudeIsSymmetric, ellipsoid.BearingIsSymmetric)
+
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = json.Unmarshal(file, &feature)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	g, err := feature.GetGeometry()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mp, ok := g.(*gj.MultiPolygon)
+	if !ok {
+		log.Fatalln("Failed to extract bound coordinates from geojson")
+	}
+
+	fmt.Println("Loaded bound coordinates:", len(mp.Coordinates))
+	pointSlice := make([]float64, 10)
+	for _, b := range mp.Coordinates {
+		for _, p := range b[0] {
+			x, y, z := geo1.ToECEF(float64(p[1]), float64(p[0]), 100)
+			pointSlice = append(pointSlice, y / geo1.Ellipse.Equatorial)
+			pointSlice = append(pointSlice, z / geo1.Ellipse.Equatorial)
+			pointSlice = append(pointSlice, x / geo1.Ellipse.Equatorial)
+		}
+	}
+
+	return pointSlice
+}
+
 func loadPoints(filename string) []float64 {
 	var feature gj.Feature
 	geo1 := ellipsoid.Init("WGS84", ellipsoid.Degrees, ellipsoid.Meter, ellipsoid.LongitudeIsSymmetric, ellipsoid.BearingIsSymmetric)
@@ -69,12 +107,13 @@ func main() {
 	var angle_x float32
 	var span float32 = 2
 
-	if len(os.Args) != 2 {
-		fmt.Printf("usage: %s <filename>\n", os.Args[0])
+	if len(os.Args) != 3 {
+		fmt.Printf("usage: %s <point_file> <bound_file>\n", os.Args[0])
 		os.Exit(1)
 	}
 
 	pointSlice := loadPoints(os.Args[1])
+	_ = loadBounds(os.Args[2])
 
 	runtime.LockOSThread()
 	if err := glfw.Init(); err != nil {

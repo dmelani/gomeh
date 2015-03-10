@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"errors"
-	_ "math"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"
@@ -24,6 +23,61 @@ const (
 	WindowWidth = 1000
 	WindowHeight = 1000
 )
+
+func loadCountries(filename string) ([]float64, []int32, []int32) {
+	var features gj.FeatureCollection
+	geo1 := ellipsoid.Init("WGS84", ellipsoid.Degrees, ellipsoid.Meter, ellipsoid.LongitudeIsSymmetric, ellipsoid.BearingIsSymmetric)
+
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = json.Unmarshal(file, &features)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	boxes := make([]float64, 0)
+	box_lens := make([]int32, 0)
+	box_starts := make([]int32, 0)
+	var start int32
+	for _, f := range features.Features {
+		g, err := f.GetGeometry()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var polygons []gj.MultiLine
+		mp, ok := g.(*gj.MultiPolygon)
+		if ok {
+			polygons = mp.Coordinates
+		} else {
+			p, ok := g.(*gj.Polygon)
+			if !ok {
+				fmt.Println(g)
+				log.Fatalln("Failed to extract country coordinates from geojson")
+			}
+			polygons = []gj.MultiLine{p.Coordinates}
+		}
+
+		for _, polygon := range polygons {
+			var l int32
+			box_starts = append(box_starts, start)
+			for _, p := range polygon[0] {
+				x, y, z := geo1.ToECEF(float64(p[1]), float64(p[0]), 0)
+				boxes = append(boxes, y / geo1.Ellipse.Equatorial)
+				boxes = append(boxes, z / geo1.Ellipse.Equatorial)
+				boxes = append(boxes, x / geo1.Ellipse.Equatorial)
+				l++
+			}
+			box_lens = append(box_lens, l)
+			start += l
+		}
+	}
+
+	return boxes, box_starts, box_lens
+}
 
 func loadBounds(filename string) ([]float64, []int32, []int32) {
 	var feature gj.Feature
@@ -130,13 +184,14 @@ func main() {
 	var angle_x float32
 	var span float32 = 2
 
-	if len(os.Args) != 3 {
-		fmt.Printf("usage: %s <point_file> <bound_file>\n", os.Args[0])
+	if len(os.Args) != 4 {
+		fmt.Printf("usage: %s <point_file> <bound_file> <country_file>\n", os.Args[0])
 		os.Exit(1)
 	}
 
 	pointSlice := loadPoints(os.Args[1])
 	boxes, boxStarts, boxLens := loadBounds(os.Args[2])
+	countries, countryStarts, countryLens := loadCountries(os.Args[3])
 
 	runtime.LockOSThread()
 	if err := glfw.Init(); err != nil {
@@ -232,6 +287,19 @@ func main() {
 	gl.EnableVertexAttribArray(boxVertexAttrib)
 	gl.VertexAttribPointer(boxVertexAttrib, 3, gl.DOUBLE, false, 0, gl.PtrOffset(0))
 
+	var countriesVao uint32
+	gl.GenVertexArrays(1, &countriesVao)
+	gl.BindVertexArray(countriesVao)
+
+	var countriesVbo uint32
+	gl.GenBuffers(1, &countriesVbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, countriesVbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(countries) * 8, gl.Ptr(countries), gl.STATIC_DRAW)
+
+	countryVertexAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
+	gl.EnableVertexAttribArray(countryVertexAttrib)
+	gl.VertexAttribPointer(countryVertexAttrib, 3, gl.DOUBLE, false, 0, gl.PtrOffset(0))
+
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -250,6 +318,9 @@ func main() {
 
 		gl.BindVertexArray(boxesVao)
 		gl.MultiDrawArrays(gl.LINE_LOOP, &boxStarts[0], &boxLens[0], int32(len(boxStarts)))
+
+		gl.BindVertexArray(countriesVao)
+		gl.MultiDrawArrays(gl.LINE_LOOP, &countryStarts[0], &countryLens[0], int32(len(countryStarts)))
 
 		window.SwapBuffers()
 		glfw.PollEvents()

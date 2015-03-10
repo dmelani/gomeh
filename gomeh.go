@@ -53,9 +53,10 @@ func loadBounds(filename string) ([]float64, []int32, []int32) {
 	boxes := make([]float64, 0)
 	box_lens := make([]int32, 0)
 	box_starts := make([]int32, 0)
-	var l int32
+	var start int32
 	for _, b := range mp.Coordinates {
-		box_starts = append(box_starts, l)
+		var l int32
+		box_starts = append(box_starts, start)
 		for _, p := range b[0] {
 			x, y, z := geo1.ToECEF(float64(p[1]), float64(p[0]), 0)
 			boxes = append(boxes, y / geo1.Ellipse.Equatorial)
@@ -64,6 +65,7 @@ func loadBounds(filename string) ([]float64, []int32, []int32) {
 			l++
 		}
 		box_lens = append(box_lens, l)
+		start += l
 	}
 
 	return boxes, box_starts, box_lens
@@ -235,19 +237,12 @@ func main() {
 		model = mgl32.HomogRotate3DX(angle_x).Mul4(mgl32.HomogRotate3DY(angle_y))
 		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
-		//gl.BindVertexArray(vao)
-		//gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))
+		gl.BindVertexArray(vao)
+		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))
 
 		gl.BindVertexArray(boxesVao)
-/*
-		for i := 0; i < len(boxLens) - 1; i++ {
-			fmt.Println(len(boxLens), i)
-			gl.DrawArrays(gl.LINE_STRIP, boxStarts[i]/3, boxLens[i]/3)
-		}
-*/
+		gl.MultiDrawArrays(gl.LINE_STRIP, &boxStarts[0], &boxLens[0], int32(len(boxStarts)))
 
-//		gl.DrawArrays(gl.LINE_STRIP, boxStarts[0]/3, boxLens[0]/3)
-		gl.DrawArrays(gl.LINE_STRIP, boxStarts[4], boxLens[4])
 		window.SwapBuffers()
 		glfw.PollEvents()
 	}

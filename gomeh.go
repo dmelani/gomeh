@@ -55,10 +55,25 @@ func loadBounds(filename string) ([]float64, []int32, []int32) {
 	box_starts := make([]int32, 0)
 	var start int32
 	for _, b := range mp.Coordinates {
+		coords := b[0]
+		interpCoords := make([][2]float64, 0)
+		for i := 0; i < len(coords) - 1; i++ {
+			startX := float64(coords[i][0])
+			endX := float64(coords[i + 1][0])
+			startY := float64(coords[i][1])
+			endY := float64(coords[i + 1][1])
+			dX := (endX - startX)/100
+			dY := (endY - startY)/100
+
+			for j := 0; j < 100; j++ {
+				interpCoords = append(interpCoords, [2]float64{startX + dX * float64(j), startY + dY * float64(j)})
+			}
+		}
+
 		var l int32
 		box_starts = append(box_starts, start)
-		for _, p := range b[0] {
-			x, y, z := geo1.ToECEF(float64(p[1]), float64(p[0]), 0)
+		for _, p := range interpCoords {
+			x, y, z := geo1.ToECEF(p[1], p[0], 0)
 			boxes = append(boxes, y / geo1.Ellipse.Equatorial)
 			boxes = append(boxes, z / geo1.Ellipse.Equatorial)
 			boxes = append(boxes, x / geo1.Ellipse.Equatorial)
@@ -216,14 +231,7 @@ func main() {
 	boxVertexAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
 	gl.EnableVertexAttribArray(boxVertexAttrib)
 	gl.VertexAttribPointer(boxVertexAttrib, 3, gl.DOUBLE, false, 0, gl.PtrOffset(0))
-	fmt.Println(boxes)
-	fmt.Println(boxStarts)
-	fmt.Println(boxLens)
 
-	_ = boxStarts
-	_ = boxLens
-	fmt.Println(boxStarts)
-	fmt.Println(boxLens)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -241,7 +249,7 @@ func main() {
 		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))
 
 		gl.BindVertexArray(boxesVao)
-		gl.MultiDrawArrays(gl.LINE_STRIP, &boxStarts[0], &boxLens[0], int32(len(boxStarts)))
+		gl.MultiDrawArrays(gl.LINE_LOOP, &boxStarts[0], &boxLens[0], int32(len(boxStarts)))
 
 		window.SwapBuffers()
 		glfw.PollEvents()

@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"errors"
-	_ "math"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.1/glfw"

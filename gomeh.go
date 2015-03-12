@@ -192,6 +192,7 @@ func main() {
 	pointSlice := loadPoints(os.Args[1])
 	boxes, boxStarts, boxLens := loadBounds(os.Args[2])
 	countries, countryStarts, countryLens := loadCountries(os.Args[3])
+	blackout := []float64{-2.0, -2.0, 0.0, 2.0, -2.0, 0.0, -2.0, 2.0, 0.0, -2.0, 2.0, 0.0, 2.0, -2.0, 0.0, 2.0, 2.0, 0.0}
 
 	runtime.LockOSThread()
 	if err := glfw.Init(); err != nil {
@@ -261,6 +262,11 @@ func main() {
 	modelUniform := gl.GetUniformLocation(program, gl.Str("model\x00"))
 	gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
+	colorUniform := gl.GetUniformLocation(program, gl.Str("uColor\x00"))
+	if colorUniform == -1 {
+		log.Fatalln("Failed to find uColor location")
+	}
+
 	var vao uint32
 	gl.GenVertexArrays(1, &vao)
 	gl.BindVertexArray(vao)
@@ -300,7 +306,24 @@ func main() {
 	gl.EnableVertexAttribArray(countryVertexAttrib)
 	gl.VertexAttribPointer(countryVertexAttrib, 3, gl.DOUBLE, false, 0, gl.PtrOffset(0))
 
+	var blackoutVao uint32
+	gl.GenVertexArrays(1, &blackoutVao)
+	gl.BindVertexArray(blackoutVao)
+
+	var blackoutVbo uint32
+	gl.GenBuffers(1, &blackoutVbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, blackoutVbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(blackout) * 8, gl.Ptr(blackout), gl.STATIC_DRAW)
+
+	blackoutVertexAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
+	gl.EnableVertexAttribArray(blackoutVertexAttrib)
+	gl.VertexAttribPointer(blackoutVertexAttrib, 3, gl.DOUBLE, false, 0, gl.PtrOffset(0))
+
+
+	gl.Enable(gl.DEPTH_TEST)
+	gl.DepthFunc(gl.LESS)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
+	color := [4]float32{1.0, 1.0, 1.0, 1.0}
 	for !window.ShouldClose() {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
@@ -310,8 +333,19 @@ func main() {
 		camera = mgl32.Translate3D(0, 0, -5)
 		gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
+		model = mgl32.Ident4()
+		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+
+		color = [4]float32{0.0, 0.0, 0.0, 1.0}
+		gl.Uniform4fv(colorUniform, 1, &color[0])
+		gl.BindVertexArray(blackoutVao)
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(pointSlice)/3))
+
 		model = mgl32.HomogRotate3DX(angle_x).Mul4(mgl32.HomogRotate3DY(angle_y))
 		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+
+		color = [4]float32{1.0, 1.0, 1.0, 1.0}
+		gl.Uniform4fv(colorUniform, 1, &color[0])
 
 		gl.BindVertexArray(vao)
 		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))
@@ -397,8 +431,9 @@ void main() {
 
 var fragmentShader = `
 #version 330
+uniform vec4 uColor;
 out vec4 outputColor;
 void main() {
-    outputColor = vec4(1.0, 1.0, 1.0, 1.0);
+    outputColor = vec4(uColor);
 }
 ` + "\x00"

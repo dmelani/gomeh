@@ -321,7 +321,7 @@ func main() {
 
 
 	gl.Enable(gl.DEPTH_TEST)
-	gl.DepthFunc(gl.LESS)
+	gl.DepthFunc(gl.LEQUAL)
 	gl.ClearColor(0.0, 0.0, 0.0, 0.0)
 	color := [4]float32{1.0, 1.0, 1.0, 1.0}
 	for !window.ShouldClose() {
@@ -344,17 +344,20 @@ func main() {
 		model = mgl32.HomogRotate3DX(angle_x).Mul4(mgl32.HomogRotate3DY(angle_y))
 		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
-		color = [4]float32{1.0, 1.0, 1.0, 1.0}
+		color = [4]float32{0.1, 0.1, 0.5, 1.0}
 		gl.Uniform4fv(colorUniform, 1, &color[0])
+		gl.BindVertexArray(countriesVao)
+		gl.MultiDrawArrays(gl.LINE_LOOP, &countryStarts[0], &countryLens[0], int32(len(countryStarts)))
 
-		gl.BindVertexArray(vao)
-		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))
-
+		color = [4]float32{0.3, 0.3, 0.7, 1.0}
+		gl.Uniform4fv(colorUniform, 1, &color[0])
 		gl.BindVertexArray(boxesVao)
 		gl.MultiDrawArrays(gl.LINE_LOOP, &boxStarts[0], &boxLens[0], int32(len(boxStarts)))
 
-		gl.BindVertexArray(countriesVao)
-		gl.MultiDrawArrays(gl.LINE_LOOP, &countryStarts[0], &countryLens[0], int32(len(countryStarts)))
+		color = [4]float32{1.0, 1.0, 1.0, 1.0}
+		gl.Uniform4fv(colorUniform, 1, &color[0])
+		gl.BindVertexArray(vao)
+		gl.DrawArrays(gl.POINTS, 0, int32(len(pointSlice)/3))
 
 		window.SwapBuffers()
 		glfw.PollEvents()

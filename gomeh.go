@@ -345,7 +345,7 @@ func main() {
 		color = [4]float32{0.0, 0.0, 0.0, 1.0}
 		gl.Uniform4fv(colorUniform, 1, &color[0])
 		gl.BindVertexArray(blackoutVao)
-		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(pointSlice)/3))
+		gl.DrawArrays(gl.TRIANGLES, 0, int32(len(blackout)/3))
 
 		model = mgl32.HomogRotate3DX(angle_x).Mul4(mgl32.HomogRotate3DY(angle_y))
 		gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])

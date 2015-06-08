@@ -189,10 +189,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Println("Loading points")
 	pointSlice := loadPoints(os.Args[1])
+	fmt.Println("Loading bboxes")
 	boxes, boxStarts, boxLens := loadBounds(os.Args[2])
+	fmt.Println("Loading countries")
 	countries, countryStarts, countryLens := loadCountries(os.Args[3])
 	blackout := []float64{-2.0, -2.0, 0.0, 2.0, -2.0, 0.0, -2.0, 2.0, 0.0, -2.0, 2.0, 0.0, 2.0, -2.0, 0.0, 2.0, 2.0, 0.0}
+
+	//derp := Triangulate(makePolygon([]float64{0, 0, 10, 7, 12, 3, 20, 8, 13, 17, 10, 12, 12, 14, 14, 9, 8, 10, 6, 14, 10, 15, 7, 10, 0, 16, 1, 13, 3, 15, 5, 8, -2, 9, 5, 5}))
+	//log.Fatalln(derp)
 
 	runtime.LockOSThread()
 	if err := glfw.Init(); err != nil {
